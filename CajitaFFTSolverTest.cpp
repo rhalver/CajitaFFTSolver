@@ -7,13 +7,13 @@ int main(int argc, char** argv)
     MPI_Init(&argc, &argv);
     Kokkos::initialize(argc,argv);
     {
-        const int n_part = 30;
+        const int n_part = 300;
 
         CajitaFFTSolver<Kokkos::OpenMP, Kokkos::HostSpace>* cffts =
             new CajitaFFTSolverFFTW<Kokkos::OpenMP,Kokkos::HostSpace>
             (
                 MPI_COMM_WORLD,
-                std::vector<int>({25,25,25}),
+                std::vector<int>({3,3,3}),
                 std::vector<bool>({true,true,true}),
                 std::vector<double>({0.0,0.0,0.0}),
                 std::vector<double>({100,100,100})
@@ -31,7 +31,9 @@ int main(int argc, char** argv)
             for (int d = 0; d < 3; ++d)
                 r(3*i+d) = distribution_r(generator);
             q(i) = distribution_q(generator);
+            std::cout << i << ": " << r(3*i) << " " << r(3*i+1) << " " << r(3*i+2) << " " << q(i) << std::endl; 
         }
+
 
         // normalize charge (periodic system should be neutral!)
         double total_charge = 0.0;
@@ -47,6 +49,8 @@ int main(int argc, char** argv)
 
         // bring charges to grid
         cffts->q2grid(r, q);
+
+        std::cout << "> " << (*cffts) << " <" << std::endl;
     }
     Kokkos::finalize();
     MPI_Finalize();

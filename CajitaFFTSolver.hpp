@@ -60,7 +60,7 @@ template <class ExecutionSpace, class MemorySpace> class CajitaFFTSolver
                     ((backCorner.at(2) - frontCorner.at(2)) / (double)gridDims(2))
                 );
             // compute cell size
-            double cellSize = backCorner.at(0) - frontCorner.at(0) / (double)gridDims(0);
+            double cellSize = (backCorner.at(0) - frontCorner.at(0)) / (double)gridDims(0);
             // create global grid
             grid = Cajita::createGlobalGrid
                 (
@@ -87,6 +87,7 @@ template <class ExecutionSpace, class MemorySpace> class CajitaFFTSolver
                     7,
                     Cajita::Cell()
                 );
+            array = Cajita::createArray<double, MemorySpace>( "internalFFTArray", layout);
         }
 
         /// constuctor to set the cell layout the data is distributed to
@@ -113,6 +114,7 @@ template <class ExecutionSpace, class MemorySpace> class CajitaFFTSolver
                     7,
                     Cajita::Cell()
                 );
+            array = Cajita::createArray<double, MemorySpace>( "internalFFTArray", layout);
             // compute grid dimension
             auto indexSpace = layout->indexSpace(Cajita::Own(), Cajita::Global());
             for (auto i = 0; i < 3; ++i)
@@ -132,7 +134,24 @@ template <class ExecutionSpace, class MemorySpace> class CajitaFFTSolver
         virtual void q2grid( Kokkos::View<double*, MemorySpace>, 
                              Kokkos::View<double*, MemorySpace> ) = 0;
 
+        virtual void forwardFFT() = 0;
 
+        virtual void backwardFFT() = 0;
+
+        virtual void grid2E( Kokkos::View<double*, MemorySpace> ) = 0;
+        virtual void grid2F( Kokkos::View<double*, MemorySpace> ) = 0;
+
+        std::shared_ptr<Cajita::Array<double, Cajita::Cell, MemorySpace>> getResultArray()
+        {
+            return array;
+        }
+
+    protected:
+        virtual Kokkos::View<int*, MemorySpace>& getGridDim() { return gridDims; }
+        virtual std::shared_ptr<Cajita::GlobalGrid>& getGrid() { return grid; }
+        virtual std::shared_ptr<Cajita::ArrayLayout<Cajita::Cell>>& getLayout() { return layout; }
+        virtual std::shared_ptr<Cajita::Array<double, Cajita::Cell, MemorySpace>>& getArray() { return array; }       
+        
     private:
         /// internal storage of the grid dimensions
         Kokkos::View<int*, MemorySpace> gridDims;
@@ -140,6 +159,31 @@ template <class ExecutionSpace, class MemorySpace> class CajitaFFTSolver
         std::shared_ptr<Cajita::GlobalGrid> grid;
         /// internal pointer to the used array layout
         std::shared_ptr<Cajita::ArrayLayout<Cajita::Cell>> layout;
+        /// internal data storeage (array)
+        std::shared_ptr<Cajita::Array<double, Cajita::Cell, MemorySpace>> array;        
 };
+
+template< class ExecutionSpace, class MemorySpace >
+std::ostream& operator<< (std::ostream& os, CajitaFFTSolver<ExecutionSpace, MemorySpace>& obj)
+{
+    auto array = obj.getResultArray();
+    auto view = array->view();
+
+    std::cerr << view.extent(0) << " - "
+              << view.extent(1) << " - "
+              << view.extent(2) << " - "
+              << view.extent(3) << std::endl;
+
+    for (int iz = 0; iz < view.extent(2); ++iz)
+        for (int iy = 0; iy < view.extent(1); ++iy)
+            for (int ix = 0; ix < view.extent(0); ++ix)
+            {
+                os << ix << " " << iy << " " << iz << ": ";
+                for (int idx = 0; idx < view.extent(3); ++idx)
+                    os << view(ix, iy, iz, idx) << " ";
+                os << '\n';
+            }
+    return os;
+}
 
 #endif
