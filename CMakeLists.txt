@@ -9,7 +9,7 @@ find_package(Kokkos REQUIRED)
 find_package(Cajita REQUIRED)
 find_package(FFTW3 REQUIRED)
 
-add_executable (CajitaFFTSolverTest CajitaFFTSolver.hpp CajitaFFTSolverTest.cpp)
+add_executable (CajitaFFTSolverTest CajitaFFTSolver.hpp CajitaFFTSolverFFTW.hpp CajitaFFTSolverTest.cpp)
 
 target_link_libraries(CajitaFFTSolverTest Cajita::Cajita Kokkos::Kokkos MPI::MPI_CXX)
 #target_include_directories( ArrayTest 
