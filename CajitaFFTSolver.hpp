@@ -24,13 +24,19 @@ template <class ExecutionSpace, class MemorySpace> class CajitaFFTSolver
             gridDims = Kokkos::View<int*, MemorySpace>("gridDims", 3);
         };
         /// constructor to set the grid dimensions
-        /// @param gx   number of grid pwoints in x-dimension
+        /// @param comm         MPI Communicator used by the application
+        /// @param gridDim      number of grid points in each cartesian direction
+        /// @param periodicity  periodicitiy in each cartesian direction
+        /// @param frontCorner  the lower, left, front corner of the system
+        /// @param backCorner   the upper, right, back corner of the system
+        /// @param halo         the width of the halo region
         CajitaFFTSolver(
                             MPI_Comm comm,
                             std::vector<int> gridDim,
                             std::vector<bool> periodicity,
                             std::vector<double> frontCorner,
-                            std::vector<double> backCorner
+                            std::vector<double> backCorner,
+                            int halo
                         ) 
             : CajitaFFTSolver()
         {
@@ -53,7 +59,9 @@ template <class ExecutionSpace, class MemorySpace> class CajitaFFTSolver
                     ((backCorner.at(0) - frontCorner.at(0)) / (double)gridDims(0)) ==
                     ((backCorner.at(2) - frontCorner.at(2)) / (double)gridDims(2))
                 );
+            // compute cell size
             double cellSize = backCorner.at(0) - frontCorner.at(0) / (double)gridDims(0);
+            // create global grid
             grid = Cajita::createGlobalGrid
                 (
                     comm,
@@ -63,30 +71,49 @@ template <class ExecutionSpace, class MemorySpace> class CajitaFFTSolver
                     backCorner,
                     cellSize
                 );
+            // create layout on global grid
+            // six degrees of freedom per grid point:
+            // 1: charge
+            // 2: real part FFT
+            // 3: imag part FFT
+            // 4: energy
+            // 5: force (x)
+            // 6: force (y)
+            // 7: force (z)
             layout = Cajita::createArrayLayout
                 (
                     grid,
-                    0,
-                    1,
+                    halo,
+                    7,
                     Cajita::Cell()
                 );
-            auto indexSpace = layout->indexSpace(Cajita::Own(), Cajita::Global());
-            for (auto i = 0; i < 3; ++i)
-                gridDims(i) = indexSpace.max(i) - indexSpace.min(i);
         }
+
         /// constuctor to set the cell layout the data is distributed to
         /// @param layout cell layout pointer on which the data is stored
-        CajitaFFTSolver(std::shared_ptr<Cajita::GlobalGrid> appGrid) :
+        /// @param halo the width of the halo region, required for Cajita
+        CajitaFFTSolver(std::shared_ptr<Cajita::GlobalGrid> appGrid, int halo) :
             CajitaFFTSolver()
-        {  
+        { 
+            // store grid
             grid = appGrid;
+            // create layout on global grid
+            // six degrees of freedom per grid point:
+            // 1: charge
+            // 2: real part FFT
+            // 3: imag part FFT
+            // 4: energy
+            // 5: force (x)
+            // 6: force (y)
+            // 7: force (z)
             layout = Cajita::createArrayLayout
                 (
                     grid,
-                    0,
-                    1,
+                    halo,
+                    7,
                     Cajita::Cell()
                 );
+            // compute grid dimension
             auto indexSpace = layout->indexSpace(Cajita::Own(), Cajita::Global());
             for (auto i = 0; i < 3; ++i)
                 gridDims(i) = indexSpace.max(i) - indexSpace.min(i);
@@ -98,6 +125,14 @@ template <class ExecutionSpace, class MemorySpace> class CajitaFFTSolver
         /// @param gy   number of grid points in y-dimension
         /// @param gz   number of grid points in z-dimension
         void setGridDim(int, int, int);
+
+        /// virtual function to bring particle charges to the grid
+        /// @param positions array with grid positions
+        /// @param charges array with charge positions
+        virtual void q2grid( Kokkos::View<double*, MemorySpace>, 
+                             Kokkos::View<double*, MemorySpace> ) = 0;
+
+
     private:
         /// internal storage of the grid dimensions
         Kokkos::View<int*, MemorySpace> gridDims;
