@@ -41,12 +41,6 @@ template< class ExecutionSpace, class MemorySpace> class CajitaFFTSolverFFTW :
         {
         }
 
-        /// implementation for the FFTW class to bring the charges to the grid
-        /// @param positions    particle positions
-        /// @param charges      particle charges
-        virtual void q2grid( Kokkos::View<double*, MemorySpace>, 
-                             Kokkos::View<double*, MemorySpace> );
-
         virtual void forwardFFT() {};
 
         virtual void backwardFFT();
@@ -57,35 +51,6 @@ template< class ExecutionSpace, class MemorySpace> class CajitaFFTSolverFFTW :
         static constexpr double fftw_halo_width = 0.0;
 };
 
-template< class ExecutionSpace, class MemorySpace > 
-void CajitaFFTSolverFFTW<ExecutionSpace, MemorySpace>::q2grid
-(
-    Kokkos::View<double*, MemorySpace> positions,
-    Kokkos::View<double*, MemorySpace> charges
-)
-{
-    // bring charges to grid
-    auto n_particles = charges.extent(0);
-
-    auto grid = this->getGrid();
-    auto layout = this->getLayout();
-    auto array = this->getArray();
-    auto view = array->view();
-    auto cellSize = grid->cellSize();
-
-
-    auto indexSpace = layout->indexSpace(Cajita::Own(), Cajita::Global());
-    for (auto i = 0; i < n_particles; ++i)
-    {
-        int ix = (positions(3 * i + 0) - indexSpace.min(0)) / cellSize;
-        int iy = (positions(3 * i + 1) - indexSpace.min(1)) / cellSize;
-        int iz = (positions(3 * i + 2) - indexSpace.min(2)) / cellSize;
-
-        view(ix, iy, iz, 0) += charges(i);
-    }
-
-    std::cout << "charges brought to grid" << std::endl;
-}
 
 template< class ExecutionSpace, class MemorySpace >
 void CajitaFFTSolverFFTW<ExecutionSpace, MemorySpace>::backwardFFT()
@@ -115,7 +80,7 @@ void CajitaFFTSolverFFTW<ExecutionSpace, MemorySpace>::backwardFFT()
             int cx = idx / ( gridDim(1) * gridDim(2) );
 
             Qinput[idx][0] = view(cx,cy,cz,0);
-            Qinput[idx][1] = 0.0;
+            Qinput[idx][1] = view(cx,cy,cz,0);
         }
     );
 
@@ -145,8 +110,8 @@ void CajitaFFTSolverFFTW<ExecutionSpace, MemorySpace>::backwardFFT()
             int cy = ( idx / gridDim(2) ) % gridDim(1);
             int cx = idx / ( gridDim(1) * gridDim(2) );
 
-            view(cx,cy,cz,1) = Qresult[idx][0];
-            view(cx,cy,cz,2) = Qresult[idx][1];
+            view(cx,cy,cz,2) = Qresult[idx][0];
+            view(cx,cy,cz,3) = Qresult[idx][1];
         }
     );
 
