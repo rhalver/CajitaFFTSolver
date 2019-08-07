@@ -11,7 +11,7 @@ find_package(FFTW3 REQUIRED)
 
 add_executable (CajitaFFTSolverTest CajitaFFTSolver.hpp CajitaFFTSolverFFTW.hpp CajitaFFTSolverTest.cpp)
 
-target_link_libraries(CajitaFFTSolverTest Cajita::Cajita Kokkos::Kokkos MPI::MPI_CXX FFTW3::fftw3)
+target_link_libraries(CajitaFFTSolverTest Cajita::Cajita Kokkos::Kokkos MPI::MPI_CXX FFTW3::fftw3 FFTW3::fftw3_mpi)
 #target_include_directories( ArrayTest 
 #                            $<INSTALL_INTERFACE:include>
 #                            $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>

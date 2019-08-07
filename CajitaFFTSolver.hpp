@@ -85,6 +85,10 @@ template <class ExecutionSpace, class MemorySpace> class CajitaFFTSolver
                     Cajita::Cell()
                 );
             array = Cajita::createArray<double, MemorySpace>( "internalFFTArray", layout);
+            // compute grid dimension
+            auto indexSpace = layout->indexSpace(Cajita::Own(), Cajita::Global());
+            for (auto i = 0; i < 3; ++i)
+                gridDims(i) = indexSpace.max(i) - indexSpace.min(i);
         }
 
         /// constuctor to set the cell layout the data is distributed to
@@ -140,6 +144,8 @@ template <class ExecutionSpace, class MemorySpace> class CajitaFFTSolver
             return array;
         }
 
+        std::shared_ptr<Cajita::ArrayLayout<Cajita::Cell>> getLocalLayout() { return layout; }
+
     protected:
         virtual Kokkos::View<int*, MemorySpace>& getGridDim() { return gridDims; }
         virtual std::shared_ptr<Cajita::GlobalGrid>& getGrid() { return grid; }
@@ -177,9 +183,9 @@ void CajitaFFTSolver<ExecutionSpace, MemorySpace>::q2grid
     auto indexSpace = layout->indexSpace(Cajita::Own(), Cajita::Global());
     for (auto i = 0; i < n_particles; ++i)
     {
-        int ix = (positions(3 * i + 0) - indexSpace.min(0)) / cellSize;
-        int iy = (positions(3 * i + 1) - indexSpace.min(1)) / cellSize;
-        int iz = (positions(3 * i + 2) - indexSpace.min(2)) / cellSize;
+        int ix = (positions(3 * i + 0) - indexSpace.min(0) * cellSize) / cellSize;
+        int iy = (positions(3 * i + 1) - indexSpace.min(1) * cellSize) / cellSize;
+        int iz = (positions(3 * i + 2) - indexSpace.min(2) * cellSize) / cellSize;
 
         view(ix, iy, iz, 0) += charges(i);
         view(ix, iy, iz, 1) = 0.0;

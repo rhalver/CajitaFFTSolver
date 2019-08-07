@@ -4,6 +4,7 @@
 #include "CajitaFFTSolver.hpp"
 
 #include "fftw3.h"
+#include "fftw3-mpi.h"
 
 template< class ExecutionSpace, class MemorySpace> class CajitaFFTSolverFFTW : 
     public CajitaFFTSolver< ExecutionSpace, MemorySpace > 
@@ -67,7 +68,20 @@ void CajitaFFTSolverFFTW<ExecutionSpace, MemorySpace>::backwardFFT()
 
     // allocate FFTW data type arrays
     fftw_complex* Qinput = new fftw_complex[n_grid_points];
-    fftw_complex* Qresult = new fftw_complex[n_grid_points];
+    //fftw_complex* Qresult = new fftw_complex[n_grid_points];
+
+    /*
+    ptrdiff_t local_n0, local_0_start;
+    ptrdiff_t alloc_local = fftw_mpi_local_size_3d(
+            (int)view.extent(0),
+            (int)view.extent(1),
+            (int)view.extent(2),
+            MPI_COMM_WORLD,
+            &local_n0,
+            &local_0_start
+        );
+    fftw_complex* Qinput = fftw_alloc_complex(alloc_local); 
+    */
 
     // copy data to Qr array
     Kokkos::parallel_for
@@ -84,14 +98,16 @@ void CajitaFFTSolverFFTW<ExecutionSpace, MemorySpace>::backwardFFT()
         }
     );
 
+
     // create FFTW plan
     fftw_plan plan;
 
-    plan = fftw_plan_dft_3d((int)view.extent(0), 
+    plan = fftw_mpi_plan_dft_3d((int)view.extent(0), 
                             (int)view.extent(1), 
                             (int)view.extent(2),
                             Qinput,
-                            Qresult,
+                            Qinput,
+                            MPI_COMM_WORLD,
                             FFTW_BACKWARD,
                             FFTW_ESTIMATE);
 
@@ -110,12 +126,17 @@ void CajitaFFTSolverFFTW<ExecutionSpace, MemorySpace>::backwardFFT()
             int cy = ( idx / gridDim(2) ) % gridDim(1);
             int cx = idx / ( gridDim(1) * gridDim(2) );
 
-            view(cx,cy,cz,2) = Qresult[idx][0];
-            view(cx,cy,cz,3) = Qresult[idx][1];
+            view(cx,cy,cz,2) = Qinput[idx][0];
+            view(cx,cy,cz,3) = Qinput[idx][1];
+
+//            view(cx,cy,cz,2) = Qresult[idx][0];
+//            view(cx,cy,cz,3) = Qresult[idx][1];
         }
     );
 
-    delete [] Qresult;
+    //fftw_destroy_plan(plan);
+
+    //delete [] Qresult;
     delete [] Qinput;
 }
 #endif
