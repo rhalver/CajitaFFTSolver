@@ -49,7 +49,7 @@ int main(int argc, char** argv)
 
         // bring charges to grid
         cffts->q2grid(r, q);
-
+        cffts->backwardFFT();
         std::cout << "> " << (*cffts) << " <" << std::endl;
     }
     Kokkos::finalize();
